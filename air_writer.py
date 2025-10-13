@@ -9,7 +9,7 @@ import os
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GREEN = (0, 255, 0) # Added missing GREEN constant
+GREEN = (0, 255, 0) # Defined for 'Saved' message
 
 # --- Color Palette ---
 COLORS = {
@@ -51,7 +51,7 @@ def set_background(background_path_or_color):
         background_image = cv2.imread(current_background)
         if background_image is not None:
             canvas = cv2.resize(background_image, (WIDTH, HEIGHT))
-            # Simple approximation for eraser color on custom backgrounds (using white for now)
+            # Simple approximation for eraser color on custom backgrounds
             eraser_color = WHITE 
         else:
             # Fallback if image load fails
@@ -92,7 +92,7 @@ def main(background=None):
     # Points deque for storing drawing coordinates
     points = deque(maxlen=512)
     
-    # Undo/Redo stacks (kept for completeness, but not exposed in current web UI)
+    # Undo/Redo stacks
     undo_stack = deque(maxlen=10)
     redo_stack = deque(maxlen=10)
     
@@ -118,7 +118,6 @@ def main(background=None):
         if is_camera_available:
             success, cam_frame = cap.read()
             if not success:
-                # If capture fails mid-stream, treat camera as unavailable
                 is_camera_available = False
                 continue
             
@@ -186,11 +185,8 @@ def main(background=None):
             gray_canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
             _, mask = cv2.threshold(gray_canvas, 1, 255, cv2.THRESH_BINARY)
             
-            # The canvas contains the drawing. We need to mask the drawing area
-            # and add it to the video frame.
             drawing_fg = cv2.bitwise_and(canvas, canvas, mask=mask)
             
-            # Use the camera frame for the background
             inv_mask = cv2.bitwise_not(mask)
             frame_bg = cv2.bitwise_and(frame, frame, mask=inv_mask)
             
@@ -239,3 +235,32 @@ def main(background=None):
 
     if is_camera_available:
         cap.release()
+
+# --- Functions exposed to app.py ---
+
+def pause_drawing():
+    """Pauses the drawing process."""
+    global is_paused
+    is_paused = True
+
+def resume_drawing():
+    """Resumes the drawing process."""
+    global is_paused
+    is_paused = False
+
+if __name__ == '__main__':
+    air_writer_generator = main()
+    while True:
+        try:
+            frame = next(air_writer_generator)
+            cv2.imshow("Air Writer", frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            elif key == ord('p'):
+                pause_drawing()
+            elif key == ord('r'):
+                resume_drawing()
+        except StopIteration:
+            break
+    cv2.destroyAllWindows()
