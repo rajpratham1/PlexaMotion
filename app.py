@@ -102,4 +102,4 @@ def resume():
 if __name__ == '__main__':
     # Initialize the background upon startup
     set_air_writer_background(current_bg_setting) 
-    app.run(debug=True)
+    app.run(debug=True) # This line will only run during local development/testing.
