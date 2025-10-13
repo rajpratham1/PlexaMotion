@@ -2,13 +2,14 @@ from flask import Flask, render_template, Response, request, jsonify
 import cv2
 import os
 import fitz # PyMuPDF
+# Import fixed functions
 from air_writer import main as air_writer_main, pause_drawing, resume_drawing, set_background as set_air_writer_background, get_colors
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Use a global variable to persist the background setting across requests
+# Global state to persist the background setting across requests
 current_bg_setting = 'whiteboard' 
 
 @app.route('/')
@@ -21,7 +22,7 @@ def writer():
 
 def generate_frames():
     """Generator function to yield frames from the air_writer.py script."""
-    # The generator relies on other routes updating the canvas using set_air_writer_background.
+    # Pass the current global background setting
     for frame in air_writer_main(background=current_bg_setting):
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
@@ -33,7 +34,6 @@ def generate_frames():
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route."""
-    # The background is handled by the persistent generator state, not the query param.
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
@@ -57,7 +57,6 @@ def upload_file():
             try:
                 pdf_document = fitz.open(filepath)
                 page = pdf_document.load_page(0)
-                # Render to a higher resolution for better quality (e.g., 2x)
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) 
                 output_filename = f"{os.path.splitext(filename)[0]}.png"
                 output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
