@@ -9,7 +9,6 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Use a global variable to persist the background setting across requests
-# This is a simple state management for this application's scope.
 current_bg_setting = 'whiteboard' 
 
 @app.route('/')
@@ -21,13 +20,8 @@ def writer():
     return render_template('writer.html')
 
 def generate_frames():
-    """
-    Generator function to yield frames from the air_writer.py script.
-    It passes the current_bg_setting which is modified by other routes.
-    """
-    # The generator loop must run constantly. We rely on the initial
-    # call to set_air_writer_background and subsequent calls to
-    # set_air_writer_background (via /background and /upload) to update the canvas.
+    """Generator function to yield frames from the air_writer.py script."""
+    # The generator relies on other routes updating the canvas using set_air_writer_background.
     for frame in air_writer_main(background=current_bg_setting):
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
@@ -39,8 +33,7 @@ def generate_frames():
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route."""
-    # We ignore the 'background' query param here, as the background setting
-    # is handled by the POST requests which update the global state.
+    # The background is handled by the persistent generator state, not the query param.
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
