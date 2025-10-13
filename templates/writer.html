@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PlexaMotion</title>
+    <style>
+        /* Keyframes for simple element entry animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- LOGO ANIMATION KEYFRAMES (Copied from index.html) --- */
+        @keyframes rotateFlow {
+            0% { transform: rotate(0deg); opacity: 0.5; }
+            100% { transform: rotate(360deg); opacity: 1; }
+        }
+        @keyframes logoTextFade {
+            from { opacity: 0; letter-spacing: -5px; }
+            to { opacity: 1; letter-spacing: normal; }
+        }
+        /* -------------------------------------------------------- */
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f5f5f5; /* Lighter background */
+            padding: 20px 0;
+            min-height: 100vh;
+        }
+
+        /* --- LOGO STYLING --- */
+        #logo-container {
+            text-align: center;
+            margin: 0 0 20px;
+            color: #1a1a1a;
+            animation: fadeIn 0.5s ease-out; /* Match title entrance speed */
+        }
+        .logo-text {
+            font-size: 1.5em; /* Smaller than index page to fit app view */
+            font-weight: 900;
+            color: #007bff;
+            display: block;
+            margin-top: 5px;
+            animation: logoTextFade 1.2s cubic-bezier(0.2, 0.8, 0.4, 1);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .logo-icon {
+            width: 40px; /* Smaller icon for app view */
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #007bff, #00b3ff);
+            margin: 0 auto;
+            position: relative;
+            animation: rotateFlow 3s infinite alternate ease-in-out;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        }
+        .logo-icon::before {
+            content: '✍'; /* Pen/handwriting symbol */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: #fff;
+        }
+        /* ---------------------- */
+
+        #video-container {
+            position: relative;
+            width: 1280px; /* Match video stream resolution */
+            height: 720px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Stronger shadow for the main view */
+            border-radius: 12px;
+            overflow: hidden; /* Ensures image corners match container */
+            animation: fadeIn 0.8s ease-out 0.2s backwards; /* Delayed entrance */
+        }
+        img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            transition: transform 0.3s ease-in-out; /* Subtle hover effect on video */
+        }
+        /* Video hover effect */
+        #video-container:hover img {
+            transform: scale(1.005);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            padding: 15px 10px;
+            margin-top: 20px;
+            background-color: #ffffff; /* White background for controls */
+            width: 1280px;
+            max-width: 95%; /* Make it responsive */
+            box-sizing: border-box;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.8s ease-out 0.4s backwards; /* Further delayed entrance */
+        }
+        .control-group {
+            margin: 10px 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Button Styling and Hover Effects */
+        button, input[type="file"] {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            transition: all 0.3s ease; /* Smooth transition */
+            font-weight: 500;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            margin: 0 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px); /* Slight lift on hover */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        button:active {
+            transform: translateY(0); /* Press effect */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* File Input Styling */
+        input[type="file"] {
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+
+        /* Color Palette Styling and Selection Effect */
+        #color-palette {
+            display: flex;
+            margin-left: 10px;
+        }
+        .color-box {
+            width: 35px; /* Slightly larger */
+            height: 35px;
+            margin: 0 4px;
+            border: 3px solid transparent; /* Used for active state */
+            border-radius: 50%; /* Circle shape */
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease;
+        }
+        .color-box:hover {
+            transform: scale(1.1); /* Pop on hover */
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        /* Placeholder for a JS-driven 'selected' effect */
+        .color-box.selected {
+            border-color: #ffc107; /* Highlight selected color */
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="logo-container">
+        <div class="logo-icon"></div>
+        <span class="logo-text">PlexaMotion</span>
+    </div>
+    
+    <div id="video-container">
+        <img id="video-stream" src="{{ url_for('video_feed') }}" alt="Video Stream">
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <label for="upload-file">Custom Background:</label>
+            <input type="file" id="upload-file" accept="image/*,.pdf">
+        </div>
+        <div class="control-group">
+            <button id="whiteboard-btn">Whiteboard</button>
+            <button id="blackboard-btn">Blackboard</button>
+        </div>
+        <div class="control-group">
+            <label style="font-weight: 600;">Color:</label>
+            <div id="color-palette"></div>
+        </div>
+        <div class="control-group">
+            <button id="pause-btn">Pause</button>
+            <button id="stop-btn">Exit</button>
+        </div>
+    </div>
+
+    <script>
+        const pauseBtn = document.getElementById('pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const videoStream = document.getElementById('video-stream');
+        const uploadFile = document.getElementById('upload-file');
+        const whiteboardBtn = document.getElementById('whiteboard-btn');
+        const blackboardBtn = document.getElementById('blackboard-btn');
+        const colorPalette = document.getElementById('color-palette');
+        const videoFeedUrl = "{{ url_for('video_feed') }}";
+
+        // Function to handle color box selection visual effect
+        function selectColorBox(targetBox) {
+            document.querySelectorAll('.color-box').forEach(box => {
+                box.classList.remove('selected');
+            });
+            targetBox.classList.add('selected');
+        }
+
+        function setVideoStreamSource(background) {
+            let url = videoFeedUrl;
+            if (background) {
+                url += `?background=${encodeURIComponent(background)}`;
+            }
+            // Add a subtle animation/transition when the source changes
+            videoStream.style.opacity = '0.5';
+            setTimeout(() => {
+                videoStream.src = url + '&' + new Date().getTime(); // Prevent caching
+                videoStream.onload = () => {
+                    videoStream.style.opacity = '1';
+                };
+            }, 100); // Wait 100ms for a visual effect
+        }
+
+        uploadFile.addEventListener('change', () => {
+            const formData = new FormData();
+            formData.append('file', uploadFile.files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.filepath) {
+                    setVideoStreamSource(data.filepath);
+                }
+            });
+        });
+
+        whiteboardBtn.addEventListener('click', () => {
+            fetch('/background', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ background: 'whiteboard' })
+            }).then(() => setVideoStreamSource('whiteboard'));
+            // Visual feedback: briefly change button style
+            whiteboardBtn.style.backgroundColor = '#28a745';
+            setTimeout(() => { whiteboardBtn.style.backgroundColor = '#007bff'; }, 200);
+        });
+
+        blackboardBtn.addEventListener('click', () => {
+            fetch('/background', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ background: 'blackboard' })
+            }).then(() => setVideoStreamSource('blackboard'));
+            // Visual feedback
+            blackboardBtn.style.backgroundColor = '#28a745';
+            setTimeout(() => { blackboardBtn.style.backgroundColor = '#007bff'; }, 200);
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (pauseBtn.textContent === 'Pause') {
+                fetch('/pause', { method: 'POST' });
+                pauseBtn.textContent = 'Resume';
+                pauseBtn.style.backgroundColor = '#dc3545'; /* Red for Resume */
+            } else {
+                fetch('/resume', { method: 'POST' });
+                pauseBtn.textContent = 'Pause';
+                pauseBtn.style.backgroundColor = '#007bff'; /* Blue for Pause */
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            // Add a quick fade out before redirect
+            document.body.style.opacity = '0';
+            setTimeout(() => {
+                 window.location.href = "{{ url_for('index') }}";
+            }, 300);
+        });
+
+        // Fetch and display color palette
+        fetch('/colors')
+            .then(response => response.json())
+            .then(colors => {
+                let firstBox = null;
+                for (const colorName in colors) {
+                    const color = colors[colorName];
+                    const colorBox = document.createElement('div');
+                    colorBox.classList.add('color-box');
+                    // OpenCV BGR is [B, G, R], CSS/HTML is RGB
+                    colorBox.style.backgroundColor = `rgb(${color[2]}, ${color[1]}, ${color[0]})`; 
+                    colorPalette.appendChild(colorBox);
+
+                    // Add click handler to each color box
+                    colorBox.addEventListener('click', () => {
+                        // Assuming your application backend handles color change through a separate API or gesture detection
+                        // This only handles the visual feedback
+                        selectColorBox(colorBox);
+                    });
+
+                    if (!firstBox) {
+                        firstBox = colorBox; // Keep track of the first box
+                    }
+                }
+                 // Visually select the first color by default
+                if (firstBox) {
+                    selectColorBox(firstBox);
+                }
+            });
+
+        // Initially resume the drawing when the page loads
+        window.addEventListener('load', () => {
+            fetch('/resume', { method: 'POST' });
+        });
+    </script>
+</body>
+</html>
