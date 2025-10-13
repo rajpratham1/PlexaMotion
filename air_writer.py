@@ -70,11 +70,17 @@ def main(background=None):
 
     # Setup camera
     cap = cv2.VideoCapture(0)
+    
+    # Create a static error frame if camera fails
+    error_frame = None
     if not cap.isOpened():
-        print("Error: Could not open camera.")
-        return
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+        print("Error: Could not open camera on the server.")
+        error_frame = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+        cv2.putText(error_frame, "Camera not available on server", (100, HEIGHT // 2), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
+    else:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     # Points deque for storing drawing coordinates
     points = deque(maxlen=512)
@@ -97,6 +103,11 @@ def main(background=None):
     slider_pos = slider_x + int((thickness / 50) * slider_w)
 
     while True:
+        # If camera failed, just yield the error frame
+        if error_frame is not None:
+            yield error_frame
+            continue
+
         if is_paused:
             yield canvas
             continue
