@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PlexaMotion</title>
+    <title>PlexaMotion - Writer</title>
     <style>
-        /* Keyframes for simple element entry animation */
+        /* CSS from previous version */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* --- LOGO ANIMATION KEYFRAMES (Copied from index.html) --- */
         @keyframes rotateFlow {
             0% { transform: rotate(0deg); opacity: 0.5; }
             100% { transform: rotate(360deg); opacity: 1; }
@@ -18,28 +16,24 @@
             from { opacity: 0; letter-spacing: -5px; }
             to { opacity: 1; letter-spacing: normal; }
         }
-        /* -------------------------------------------------------- */
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             margin: 0;
-            background-color: #f5f5f5; /* Lighter background */
+            background-color: #f5f5f5;
             padding: 20px 0;
             min-height: 100vh;
         }
-
-        /* --- LOGO STYLING --- */
         #logo-container {
             text-align: center;
             margin: 0 0 20px;
             color: #1a1a1a;
-            animation: fadeIn 0.5s ease-out; /* Match title entrance speed */
+            animation: fadeIn 0.5s ease-out;
         }
         .logo-text {
-            font-size: 1.5em; /* Smaller than index page to fit app view */
+            font-size: 1.5em;
             font-weight: 900;
             color: #007bff;
             display: block;
@@ -48,7 +42,7 @@
             text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
         }
         .logo-icon {
-            width: 40px; /* Smaller icon for app view */
+            width: 40px;
             height: 40px;
             border-radius: 50%;
             background: linear-gradient(45deg, #007bff, #00b3ff);
@@ -58,7 +52,7 @@
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
         }
         .logo-icon::before {
-            content: '✍'; /* Pen/handwriting symbol */
+            content: '✍';
             position: absolute;
             top: 50%;
             left: 50%;
@@ -66,28 +60,34 @@
             font-size: 20px;
             color: #fff;
         }
-        /* ---------------------- */
-
+        
+        /* Video/Canvas Container Styling */
         #video-container {
             position: relative;
-            width: 1280px; /* Match video stream resolution */
+            width: 1280px; 
             height: 720px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Stronger shadow for the main view */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); 
             border-radius: 12px;
-            overflow: hidden; /* Ensures image corners match container */
-            animation: fadeIn 0.8s ease-out 0.2s backwards; /* Delayed entrance */
+            overflow: hidden; 
+            animation: fadeIn 0.8s ease-out 0.2s backwards;
+            background-color: #ffffff; /* Default background */
         }
-        img {
+        #webcam, #drawing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: block;
-            transition: transform 0.3s ease-in-out; /* Subtle hover effect on video */
         }
-        /* Video hover effect */
-        #video-container:hover img {
-            transform: scale(1.005);
+        #webcam {
+            /* Hide the raw video feed, we will draw its content on the canvas */
+            display: none; 
+        }
+        #drawing-canvas {
+            z-index: 10;
         }
 
+        /* Control Styles (simplified as API calls are gone) */
         .controls {
             display: flex;
             flex-wrap: wrap;
@@ -95,93 +95,66 @@
             align-items: center;
             padding: 15px 10px;
             margin-top: 20px;
-            background-color: #ffffff; /* White background for controls */
+            background-color: #ffffff;
             width: 1280px;
-            max-width: 95%; /* Make it responsive */
+            max-width: 95%;
             box-sizing: border-box;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.8s ease-out 0.4s backwards; /* Further delayed entrance */
+            animation: fadeIn 0.8s ease-out 0.4s backwards;
         }
         .control-group {
             margin: 10px 20px;
             display: flex;
             align-items: center;
         }
-
-        /* Button Styling and Hover Effects */
-        button, input[type="file"] {
-            padding: 10px 15px;
+        .control-group button {
+             padding: 10px 15px;
             font-size: 14px;
             cursor: pointer;
             border: none;
             border-radius: 6px;
-            transition: all 0.3s ease; /* Smooth transition */
+            transition: all 0.3s ease;
             font-weight: 500;
-        }
-        button {
             background-color: #007bff;
             color: white;
             margin: 0 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        button:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px); /* Slight lift on hover */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        button:active {
-            transform: translateY(0); /* Press effect */
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        
-        /* File Input Styling */
-        input[type="file"] {
-            background-color: #f0f0f0;
-            color: #333;
-            border: 1px solid #ccc;
-        }
-
-        /* Color Palette Styling and Selection Effect */
-        #color-palette {
-            display: flex;
-            margin-left: 10px;
-        }
         .color-box {
-            width: 35px; /* Slightly larger */
+            width: 35px;
             height: 35px;
             margin: 0 4px;
-            border: 3px solid transparent; /* Used for active state */
-            border-radius: 50%; /* Circle shape */
+            border: 3px solid transparent;
+            border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
             transition: all 0.2s ease;
         }
-        .color-box:hover {
-            transform: scale(1.1); /* Pop on hover */
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        }
-        /* Placeholder for a JS-driven 'selected' effect */
         .color-box.selected {
-            border-color: #ffc107; /* Highlight selected color */
+            border-color: #ffc107;
             transform: scale(1.2);
         }
     </style>
 </head>
 <body>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
     <div id="logo-container">
         <div class="logo-icon"></div>
         <span class="logo-text">PlexaMotion</span>
     </div>
     
     <div id="video-container">
-        <img id="video-stream" src="https://plexamotion.onrender.com/video_feed" alt="Video Stream">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="drawing-canvas"></canvas> 
+        <div id="loading-message" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #444; font-size: 1.5em;">
+            Loading webcam and models... Please allow camera access.
+        </div>
     </div>
     <div class="controls">
-        <div class="control-group">
-            <label for="upload-file">Custom Background:</label>
-            <input type="file" id="upload-file" accept="image/*,.pdf">
-        </div>
         <div class="control-group">
             <button id="whiteboard-btn">Whiteboard</button>
             <button id="blackboard-btn">Blackboard</button>
@@ -191,150 +164,224 @@
             <div id="color-palette"></div>
         </div>
         <div class="control-group">
-            <button id="pause-btn">Pause</button>
-            <button id="stop-btn">Exit</button>
+            <label style="font-weight: 600;">Size:</label>
+            <input type="range" id="size-slider" min="5" max="50" value="10">
+        </div>
+        <div class="control-group">
+            <button id="eraser-btn">Eraser</button>
+            <button id="clear-btn">Clear</button>
+            <button id="exit-btn">Exit</button>
         </div>
     </div>
 
     <script>
-        // --- HARDCODED BACKEND URL ---
-        const BACKEND_URL = 'https://plexamotion.onrender.com';
-        // -----------------------------
-
-        const pauseBtn = document.getElementById('pause-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const videoStream = document.getElementById('video-stream');
-        const uploadFile = document.getElementById('upload-file');
-        const whiteboardBtn = document.getElementById('whiteboard-btn');
-        const blackboardBtn = document.getElementById('blackboard-btn');
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('drawing-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const loadingMessage = document.getElementById('loading-message');
         const colorPalette = document.getElementById('color-palette');
+        const sizeSlider = document.getElementById('size-slider');
         
-        // Use the hardcoded URL
-        const videoFeedUrl = `${BACKEND_URL}/video_feed`;
+        let drawColor = '#00ff00'; // Default Green (RGB)
+        let drawThickness = 10;
+        let lastPoint = null;
+        let isPinching = false;
+        
+        // Drawing lines stored in history for continuous canvas refresh
+        let drawingHistory = [];
 
-        // Function to handle color box selection visual effect
-        function selectColorBox(targetBox) {
+        // --- Configuration Constants (Mirroring Python colors for UI) ---
+        const COLORS = {
+            "GREEN": [0, 255, 0],
+            "BLUE": [0, 0, 255],
+            "RED": [255, 0, 0],
+            "YELLOW": [255, 255, 0],
+            "PURPLE": [128, 0, 128],
+            "PINK": [255, 192, 203],
+            "CYAN": [0, 255, 255]
+        };
+
+        // --- CORE APPLICATION LOGIC ---
+
+        function setBackground(color) {
+            canvasElement.style.backgroundColor = color;
+            // When setting a background, we need to clear the drawing history
+            drawingHistory = [];
+        }
+
+        function createColorPalette() {
+            for (const colorName in COLORS) {
+                const [r, g, b] = COLORS[colorName];
+                const hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                
+                const colorBox = document.createElement('div');
+                colorBox.className = 'color-box';
+                colorBox.style.backgroundColor = hexColor;
+                colorBox.dataset.color = hexColor;
+
+                colorBox.addEventListener('click', () => {
+                    drawColor = colorBox.dataset.color;
+                    updateColorSelection(colorBox);
+                });
+                colorPalette.appendChild(colorBox);
+            }
+            // Select the first color (GREEN) by default
+            updateColorSelection(colorPalette.firstChild);
+        }
+
+        function updateColorSelection(selectedBox) {
             document.querySelectorAll('.color-box').forEach(box => {
                 box.classList.remove('selected');
             });
-            targetBox.classList.add('selected');
+            if (selectedBox) selectedBox.classList.add('selected');
         }
 
-        function setVideoStreamSource(background) {
-            let url = videoFeedUrl;
-            if (background) {
-                // Background parameter is only passed here to avoid caching issues, 
-                // the actual background change happens via the separate POST requests below.
-                url += `?background=${encodeURIComponent(background)}`;
-            }
-            // Add a subtle animation/transition when the source changes
-            videoStream.style.opacity = '0.5';
-            setTimeout(() => {
-                videoStream.src = url + '&' + new Date().getTime(); // Prevent caching
-                videoStream.onload = () => {
-                    videoStream.style.opacity = '1';
-                };
-            }, 100); // Wait 100ms for a visual effect
-        }
-
-        uploadFile.addEventListener('change', () => {
-            const formData = new FormData();
-            formData.append('file', uploadFile.files[0]);
-
-            // HARDCODED URL FOR UPLOAD
-            fetch(`${BACKEND_URL}/upload`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.filepath) {
-                    setVideoStreamSource(data.filepath);
+        function drawDrawingHistory() {
+            for (let i = 0; i < drawingHistory.length; i++) {
+                const line = drawingHistory[i];
+                if (line.start && line.end) {
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(line.start.x, line.start.y);
+                    canvasCtx.lineTo(line.end.x, line.end.y);
+                    canvasCtx.strokeStyle = line.color;
+                    canvasCtx.lineWidth = line.thickness;
+                    canvasCtx.lineCap = 'round';
+                    canvasCtx.stroke();
                 }
-            });
-        });
-
-        whiteboardBtn.addEventListener('click', () => {
-            // HARDCODED URL FOR BACKGROUND
-            fetch(`${BACKEND_URL}/background`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ background: 'whiteboard' })
-            }).then(() => setVideoStreamSource('whiteboard'));
-            // Visual feedback: briefly change button style
-            whiteboardBtn.style.backgroundColor = '#28a745';
-            setTimeout(() => { whiteboardBtn.style.backgroundColor = '#007bff'; }, 200);
-        });
-
-        blackboardBtn.addEventListener('click', () => {
-            // HARDCODED URL FOR BACKGROUND
-            fetch(`${BACKEND_URL}/background`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ background: 'blackboard' })
-            }).then(() => setVideoStreamSource('blackboard'));
-            // Visual feedback
-            blackboardBtn.style.backgroundColor = '#28a745';
-            setTimeout(() => { blackboardBtn.style.backgroundColor = '#007bff'; }, 200);
-        });
-
-        pauseBtn.addEventListener('click', () => {
-            if (pauseBtn.textContent === 'Pause') {
-                // HARDCODED URL FOR PAUSE
-                fetch(`${BACKEND_URL}/pause`, { method: 'POST' });
-                pauseBtn.textContent = 'Resume';
-                pauseBtn.style.backgroundColor = '#dc3545'; /* Red for Resume */
-            } else {
-                // HARDCODED URL FOR RESUME
-                fetch(`${BACKEND_URL}/resume`, { method: 'POST' });
-                pauseBtn.textContent = 'Pause';
-                pauseBtn.style.backgroundColor = '#007bff'; /* Blue for Pause */
+            }
+        }
+        
+        // --- MEDIA PIPE HANDLER ---
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
             }
         });
 
-        stopBtn.addEventListener('click', () => {
-            // Add a quick fade out before redirect
-            document.body.style.opacity = '0';
-            setTimeout(() => {
-                // HARDCODED URL FOR REDIRECT TO INDEX PAGE
-                window.location.href = `${BACKEND_URL}/`;
-            }, 300);
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.5
         });
 
-        // Fetch and display color palette
-        // HARDCODED URL FOR COLORS
-        fetch(`${BACKEND_URL}/colors`)
-            .then(response => response.json())
-            .then(colors => {
-                let firstBox = null;
-                for (const colorName in colors) {
-                    const color = colors[colorName];
-                    const colorBox = document.createElement('div');
-                    colorBox.classList.add('color-box');
-                    // OpenCV BGR is [B, G, R], CSS/HTML is RGB
-                    colorBox.style.backgroundColor = `rgb(${color[2]}, ${color[1]}, ${color[0]})`;  
-                    colorPalette.appendChild(colorBox);
+        hands.onResults(onResults);
+        
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // Draw the current video frame onto the canvas (flipped horizontally)
+            canvasCtx.globalCompositeOperation = 'source-over';
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-                    // Add click handler to each color box
-                    colorBox.addEventListener('click', () => {
-                        selectColorBox(colorBox);
-                    });
+            // Re-draw the persistent lines
+            drawDrawingHistory();
 
-                    if (!firstBox) {
-                        firstBox = colorBox; // Keep track of the first box
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Get the coordinates of the index finger tip and thumb tip
+                const indexTip = landmarks[8];
+                const thumbTip = landmarks[4];
+
+                // Convert normalized coordinates to canvas pixels
+                const cx = indexTip.x * canvasElement.width;
+                const cy = indexTip.y * canvasElement.height;
+                const tx = thumbTip.x * canvasElement.width;
+                const ty = thumbTip.y * canvasElement.height;
+
+                // Calculate distance between index and thumb
+                const pinchDistance = Math.hypot(cx - tx, cy - ty);
+
+                // Check for a pinching gesture (Draw mode)
+                const PINCH_THRESHOLD = 45; 
+                isPinching = pinchDistance < PINCH_THRESHOLD;
+
+                // Draw annotation on the current hand position
+                drawLandmarks(canvasCtx, landmarks, {color: drawColor, lineWidth: 2});
+                
+                // Draw Mode
+                if (isPinching) {
+                    // Start drawing a new line segment
+                    if (lastPoint) {
+                        drawingHistory.push({
+                            start: lastPoint,
+                            end: {x: cx, y: cy},
+                            color: drawColor,
+                            thickness: drawThickness
+                        });
                     }
-                }
-                // Visually select the first color by default
-                if (firstBox) {
-                    selectColorBox(firstBox);
-                }
-            });
+                    lastPoint = {x: cx, y: cy};
 
-        // Initially resume the drawing when the page loads
-        window.addEventListener('load', () => {
-            // HARDCODED URL FOR RESUME
-            fetch(`${BACKEND_URL}/resume`, { method: 'POST' });
+                    // Draw the latest segment instantly
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(lastPoint.x, lastPoint.y);
+                    canvasCtx.lineTo(cx, cy);
+                    canvasCtx.strokeStyle = drawColor;
+                    canvasCtx.lineWidth = drawThickness;
+                    canvasCtx.lineCap = 'round';
+                    canvasCtx.stroke();
+                    
+                } else {
+                    lastPoint = null;
+                }
+            } else {
+                lastPoint = null;
+            }
+
+            canvasCtx.restore();
+        }
+
+        // --- CAMERA SETUP ---
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                if (loadingMessage) loadingMessage.style.display = 'none';
+                await hands.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
         });
+        camera.start();
+
+
+        // --- EVENT LISTENERS ---
+
+        document.getElementById('whiteboard-btn').addEventListener('click', () => {
+            setBackground('white');
+        });
+
+        document.getElementById('blackboard-btn').addEventListener('click', () => {
+            setBackground('black');
+        });
+
+        document.getElementById('eraser-btn').addEventListener('click', () => {
+            // Set drawing color to match the current background color for erasing effect
+            drawColor = canvasElement.style.backgroundColor || 'white'; 
+            updateColorSelection(null);
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            drawingHistory = [];
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        });
+        
+        document.getElementById('exit-btn').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        sizeSlider.addEventListener('input', (e) => {
+            drawThickness = parseInt(e.target.value);
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            canvasElement.width = 1280;
+            canvasElement.height = 720;
+            setBackground('white');
+            createColorPalette();
+        };
+
     </script>
 </body>
 </html>
