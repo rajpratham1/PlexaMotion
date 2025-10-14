@@ -1,16 +1,27 @@
 import cv2
 import numpy as np
-import mediapipe as mp
+import os
 from collections import deque
 import math
-import os
+
+# --- Safety Import Block ---
+# Try to import MediaPipe. If it fails (due to deployment issues), 
+# the application still runs in stable static mode.
+try:
+    import mediapipe as mp
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    print("WARNING: MediaPipe could not be imported. Running in degraded static mode.")
+    mp = None
+    MEDIAPIPE_AVAILABLE = False
+# ---------------------------
 
 # Constants
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0) 
-RED = (0, 0, 255) # Used for error message
+RED = (0, 0, 255) 
 
 # --- Color Palette ---
 COLORS = {
@@ -64,14 +75,13 @@ def get_colors():
 def main(background=None):
     """
     Main function to run the hand tracking and drawing application.
-    Implements a safety switch to bypass ML setup in cloud environments.
+    Checks for camera and runs the loop or yields a static error frame.
     """
     global is_paused, canvas, eraser_color
     set_background(background or 'whiteboard') 
     
     # --- SAFETY SWITCH CHECK ---
-    # If this environment variable is set to '1' (e.g., on Render), 
-    # we bypass camera/ML setup to save resources and prevent crashes.
+    # is_cloud_deploy is '1' on Render
     is_cloud_deploy = os.environ.get("IS_CLOUD_DEPLOY", "0") == "1"
     
     # Initialize variables
@@ -80,8 +90,8 @@ def main(background=None):
     mp_draw = None
     is_camera_available = False
 
-    if not is_cloud_deploy:
-        # Setup camera
+    if not is_cloud_deploy and MEDIAPIPE_AVAILABLE:
+        # Setup camera (Only if not in cloud mode AND mediapipe import succeeded)
         cap = cv2.VideoCapture(0)
         is_camera_available = cap.isOpened()
         
@@ -94,7 +104,7 @@ def main(background=None):
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
         else:
-            print("Warning: Camera failed to open locally. Running static server mode.")
+            print("Warning: Camera failed to open locally.")
     else:
         print("Warning: Running in dedicated static server (cloud) mode.")
     
@@ -120,13 +130,13 @@ def main(background=None):
             yield frame 
             continue
             
-        # --- Camera Handling and Gesture Detection (Only if camera/ML is ready) ---
+        # --- Camera/Gesture Detection (Only if all conditions met) ---
         is_drawing = False
         
         if is_camera_available and cap and hands:
             success, cam_frame = cap.read()
             if not success:
-                is_camera_available = False # Treat failure as non-available
+                is_camera_available = False 
                 continue
             
             cam_frame = cv2.flip(cam_frame, 1)
@@ -238,7 +248,7 @@ def main(background=None):
     if cap:
         cap.release()
 
-# --- Functions exposed to app.py (Fixes ImportError) ---
+# --- Functions exposed to app.py (Fixes previous ImportError) ---
 
 def pause_drawing():
     """Pauses the drawing process."""
