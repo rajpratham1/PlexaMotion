@@ -175,7 +175,7 @@
     </div>
     
     <div id="video-container">
-        <img id="video-stream" src="{{ url_for('video_feed') }}" alt="Video Stream">
+        <img id="video-stream" src="https://plexamotion.onrender.com/video_feed" alt="Video Stream">
     </div>
     <div class="controls">
         <div class="control-group">
@@ -197,6 +197,10 @@
     </div>
 
     <script>
+        // --- HARDCODED BACKEND URL ---
+        const BACKEND_URL = 'https://plexamotion.onrender.com';
+        // -----------------------------
+
         const pauseBtn = document.getElementById('pause-btn');
         const stopBtn = document.getElementById('stop-btn');
         const videoStream = document.getElementById('video-stream');
@@ -204,7 +208,9 @@
         const whiteboardBtn = document.getElementById('whiteboard-btn');
         const blackboardBtn = document.getElementById('blackboard-btn');
         const colorPalette = document.getElementById('color-palette');
-        const videoFeedUrl = "{{ url_for('video_feed') }}";
+        
+        // Use the hardcoded URL
+        const videoFeedUrl = `${BACKEND_URL}/video_feed`;
 
         // Function to handle color box selection visual effect
         function selectColorBox(targetBox) {
@@ -217,6 +223,8 @@
         function setVideoStreamSource(background) {
             let url = videoFeedUrl;
             if (background) {
+                // Background parameter is only passed here to avoid caching issues, 
+                // the actual background change happens via the separate POST requests below.
                 url += `?background=${encodeURIComponent(background)}`;
             }
             // Add a subtle animation/transition when the source changes
@@ -233,7 +241,8 @@
             const formData = new FormData();
             formData.append('file', uploadFile.files[0]);
 
-            fetch('/upload', {
+            // HARDCODED URL FOR UPLOAD
+            fetch(`${BACKEND_URL}/upload`, {
                 method: 'POST',
                 body: formData
             })
@@ -246,7 +255,8 @@
         });
 
         whiteboardBtn.addEventListener('click', () => {
-            fetch('/background', { 
+            // HARDCODED URL FOR BACKGROUND
+            fetch(`${BACKEND_URL}/background`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ background: 'whiteboard' })
@@ -257,7 +267,8 @@
         });
 
         blackboardBtn.addEventListener('click', () => {
-            fetch('/background', { 
+            // HARDCODED URL FOR BACKGROUND
+            fetch(`${BACKEND_URL}/background`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ background: 'blackboard' })
@@ -269,11 +280,13 @@
 
         pauseBtn.addEventListener('click', () => {
             if (pauseBtn.textContent === 'Pause') {
-                fetch('/pause', { method: 'POST' });
+                // HARDCODED URL FOR PAUSE
+                fetch(`${BACKEND_URL}/pause`, { method: 'POST' });
                 pauseBtn.textContent = 'Resume';
                 pauseBtn.style.backgroundColor = '#dc3545'; /* Red for Resume */
             } else {
-                fetch('/resume', { method: 'POST' });
+                // HARDCODED URL FOR RESUME
+                fetch(`${BACKEND_URL}/resume`, { method: 'POST' });
                 pauseBtn.textContent = 'Pause';
                 pauseBtn.style.backgroundColor = '#007bff'; /* Blue for Pause */
             }
@@ -283,12 +296,14 @@
             // Add a quick fade out before redirect
             document.body.style.opacity = '0';
             setTimeout(() => {
-                 window.location.href = "{{ url_for('index') }}";
+                // HARDCODED URL FOR REDIRECT TO INDEX PAGE
+                window.location.href = `${BACKEND_URL}/`;
             }, 300);
         });
 
         // Fetch and display color palette
-        fetch('/colors')
+        // HARDCODED URL FOR COLORS
+        fetch(`${BACKEND_URL}/colors`)
             .then(response => response.json())
             .then(colors => {
                 let firstBox = null;
@@ -297,13 +312,11 @@
                     const colorBox = document.createElement('div');
                     colorBox.classList.add('color-box');
                     // OpenCV BGR is [B, G, R], CSS/HTML is RGB
-                    colorBox.style.backgroundColor = `rgb(${color[2]}, ${color[1]}, ${color[0]})`; 
+                    colorBox.style.backgroundColor = `rgb(${color[2]}, ${color[1]}, ${color[0]})`;  
                     colorPalette.appendChild(colorBox);
 
                     // Add click handler to each color box
                     colorBox.addEventListener('click', () => {
-                        // Assuming your application backend handles color change through a separate API or gesture detection
-                        // This only handles the visual feedback
                         selectColorBox(colorBox);
                     });
 
@@ -311,7 +324,7 @@
                         firstBox = colorBox; // Keep track of the first box
                     }
                 }
-                 // Visually select the first color by default
+                // Visually select the first color by default
                 if (firstBox) {
                     selectColorBox(firstBox);
                 }
@@ -319,7 +332,8 @@
 
         // Initially resume the drawing when the page loads
         window.addEventListener('load', () => {
-            fetch('/resume', { method: 'POST' });
+            // HARDCODED URL FOR RESUME
+            fetch(`${BACKEND_URL}/resume`, { method: 'POST' });
         });
     </script>
 </body>
