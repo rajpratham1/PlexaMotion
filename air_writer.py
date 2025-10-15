@@ -1,27 +1,15 @@
 import cv2
 import numpy as np
-import os
+import mediapipe as mp
 from collections import deque
+import datetime
 import math
-
-# --- Safety Import Block ---
-# Try to import MediaPipe. If it fails (due to deployment issues), 
-# the application still runs in stable static mode.
-try:
-    import mediapipe as mp
-    MEDIAPIPE_AVAILABLE = True
-except ImportError:
-    print("WARNING: MediaPipe could not be imported. Running in degraded static mode.")
-    mp = None
-    MEDIAPIPE_AVAILABLE = False
-# ---------------------------
+import os
 
 # Constants
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GREEN = (0, 255, 0) 
-RED = (0, 0, 255) 
 
 # --- Color Palette ---
 COLORS = {
@@ -39,137 +27,172 @@ COLORS = {
 is_paused = False
 current_background = None
 canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
-eraser_color = BLACK 
+global_cap = None
 
 def set_background(background_path_or_color):
-    """Sets the background for the canvas and updates the eraser color."""
-    global canvas, current_background, eraser_color
-    
-    current_background = str(background_path_or_color or '').lower()
-    
-    canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
-    eraser_color = BLACK 
-
-    if current_background == 'whiteboard':
-        canvas[:] = WHITE
-        eraser_color = WHITE
-    elif current_background == 'blackboard':
-        canvas[:] = BLACK
-        eraser_color = BLACK
-    elif os.path.exists(current_background):
-        background_image = cv2.imread(current_background)
+    """Sets the background for the canvas."""
+    global canvas, current_background
+    current_background = background_path_or_color
+    if os.path.exists(str(current_background)):
+        background_image = cv2.imread(str(current_background))
         if background_image is not None:
             canvas = cv2.resize(background_image, (WIDTH, HEIGHT))
-            eraser_color = WHITE 
         else:
+            canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+            if str(current_background).lower() == 'whiteboard':
+                canvas[:] = WHITE
+            elif str(current_background).lower() == 'blackboard':
+                canvas[:] = BLACK
+    elif isinstance(current_background, str):
+        if current_background.lower() == 'whiteboard':
+            canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
             canvas[:] = WHITE
-            eraser_color = WHITE
+        elif current_background.lower() == 'blackboard':
+            canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+            canvas[:] = BLACK
     else:
-        canvas[:] = WHITE
-        eraser_color = WHITE
+        canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
 
 def get_colors():
     """Returns the available colors."""
     return COLORS
 
-def main(background=None):
+def save_canvas():
+    """Saves the current canvas to a file."""
+    global canvas
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"drawing_{timestamp}.png"
+    filepath = os.path.join('uploads', filename)
+    cv2.imwrite(filepath, canvas)
+    print(f"Drawing saved to {filepath}")
+    return filename
+
+def release_camera():
+    global global_cap
+    if global_cap is not None:
+        global_cap.release()
+        print("Camera released.")
+
+def main(background='blackboard'):
     """
     Main function to run the hand tracking and drawing application.
-    Checks for camera and runs the loop or yields a static error frame.
     """
-    global is_paused, canvas, eraser_color
-    set_background(background or 'whiteboard') 
-    
-    # --- SAFETY SWITCH CHECK ---
-    # is_cloud_deploy is '1' on Render
-    is_cloud_deploy = os.environ.get("IS_CLOUD_DEPLOY", "0") == "1"
-    
-    # Initialize variables
-    cap = None
-    hands = None
-    mp_draw = None
-    is_camera_available = False
+    global is_paused, canvas
+    set_background(background)
 
-    if not is_cloud_deploy and MEDIAPIPE_AVAILABLE:
-        # Setup camera (Only if not in cloud mode AND mediapipe import succeeded)
+    # Initialize MediaPipe Hands
+    mp_hands = mp.solutions.hands
+    hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+    mp_draw = mp.solutions.drawing_utils
+
+    # Setup camera
+    cap = None
+    error_frame = None
+
+    if os.environ.get("NO_CAMERA") == "1":
+        print("NO_CAMERA environment variable is set. Skipping camera initialization.")
+        error_frame = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+        cv2.putText(error_frame, "Camera not available on server", (50, HEIGHT // 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
+    else:
         cap = cv2.VideoCapture(0)
-        is_camera_available = cap.isOpened()
-        
-        if is_camera_available:
-            # Initialize MediaPipe Hands only if camera is available
-            mp_hands = mp.solutions.hands
-            hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
-            mp_draw = mp.solutions.drawing_utils
-            
+        if not cap.isOpened():
+            print("Error: Could not open camera.")
+            error_frame = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+            cv2.putText(error_frame, "Could not open camera", (50, HEIGHT // 2),
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
+        else:
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-        else:
-            print("Warning: Camera failed to open locally.")
-    else:
-        print("Warning: Running in dedicated static server (cloud) mode.")
-    
+
     # Points deque for storing drawing coordinates
     points = deque(maxlen=512)
-    
+
     # Undo/Redo stacks
     undo_stack = deque(maxlen=10)
     redo_stack = deque(maxlen=10)
-    
+
     # Default color and thickness
     draw_color = COLORS["GREEN"]
     thickness = 10
-    
+
+    # Eraser
+    eraser_color = WHITE
+
     save_message_timer = 0
+
+    # Brush thickness slider
     slider_x, slider_y, slider_w, slider_h = 900, 10, 200, 40
+    slider_pos = slider_x + int((thickness / 50) * slider_w)
 
-    while True:
-        # Start the frame with the current canvas content
-        frame = canvas.copy()
-        
-        if is_paused:
-            yield frame 
-            continue
-            
-        # --- Camera/Gesture Detection (Only if all conditions met) ---
-        is_drawing = False
-        
-        if is_camera_available and cap and hands:
-            success, cam_frame = cap.read()
-            if not success:
-                is_camera_available = False 
+    try:
+        while True:
+            # If camera failed, just yield the error frame
+            if error_frame is not None:
+                yield error_frame
                 continue
-            
-            cam_frame = cv2.flip(cam_frame, 1)
-            frame = cam_frame.copy() 
 
-            rgb_frame = cv2.cvtColor(cam_frame, cv2.COLOR_BGR2RGB)
+            if is_paused:
+                yield canvas
+                continue
+
+            # Read frame from camera
+            success, frame = cap.read()
+            if not success:
+                print("Error: Failed to capture frame.")
+                # Create a frame to show the error
+                frame = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+                cv2.putText(frame, "Error: Failed to capture frame.", (50, HEIGHT // 2),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv2.LINE_AA)
+                yield frame
+                continue  # Keep the stream alive showing the error
+
+            # Flip the frame horizontally for a selfie-view display
+            frame = cv2.flip(frame, 1)
+
+            # Convert the BGR image to RGB
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Process the frame and find hands
             result = hands.process(rgb_frame)
 
+            # Draw the hand annotations on the image.
             if result.multi_hand_landmarks:
                 for hand_landmarks in result.multi_hand_landmarks:
                     mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                    
+
+                    # Get coordinates of landmarks
                     landmarks = hand_landmarks.landmark
+
+                    # Get coordinates of index finger tip and thumb tip
                     index_finger_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-                    middle_pip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_PIP]
-                    index_pip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_PIP]
-                    
+                    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+
                     cx, cy = int(index_finger_tip.x * WIDTH), int(index_finger_tip.y * HEIGHT)
-                    
-                    # Selection/Control Zone Check (Top 60px)
+                    tx, ty = int(thumb_tip.x * WIDTH), int(thumb_tip.y * HEIGHT)
+
+                    # Calculate distance between index finger and thumb
+                    pinch_distance = math.hypot(cx - tx, cy - ty)
+
+                    # Check if the user is selecting a color or action
                     if cy < 60:
+                        # Color selection
                         color_keys = list(COLORS.keys())
                         for i, key in enumerate(color_keys):
-                            if 20 + i*100 < cx < 120 + i*100:
+                            if 20 + i * 100 < cx < 120 + i * 100:
                                 draw_color = COLORS[key]
                                 break
-                        
-                        if 1060 < cx < 1160: # Eraser
+
+                        # Other actions
+                        if 1060 < cx < 1160:  # Eraser
                             draw_color = eraser_color
-                        elif 1170 < cx < 1270: # Clear
+                        elif 1170 < cx < 1270:  # Clear
                             undo_stack.append(canvas.copy())
-                            set_background(current_background) 
+                            canvas = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+                            if current_background:
+                                set_background(current_background)
                             points = deque(maxlen=512)
 
                         # Brush thickness slider interaction
@@ -177,8 +200,14 @@ def main(background=None):
                             slider_pos = cx
                             thickness = int(((slider_pos - slider_x) / slider_w) * 49) + 1
 
-                    # Drawing Gesture: index finger up, middle finger down
-                    is_drawing = (index_finger_tip.y < index_pip.y and 
+                    # Gesture for drawing (index finger extended, others curled)
+                    index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    index_pip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_PIP]
+                    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+                    middle_pip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_PIP]
+
+                    # A more relaxed drawing gesture: index finger up, middle finger down.
+                    is_drawing = (index_tip.y < index_pip.y and
                                   middle_tip.y > middle_pip.y)
 
                     if is_drawing and cy > 60:
@@ -187,76 +216,61 @@ def main(background=None):
                             redo_stack.clear()
                         points.appendleft((cx, cy))
                     else:
-                        points.appendleft(None) 
-        
-        # --- Drawing on Canvas ---
-        for i in range(1, len(points)):
-            if points[i - 1] is None or points[i] is None:
-                continue
-            cv2.line(canvas, points[i - 1], points[i], draw_color, thickness)
-            
-        # --- Frame Combination ---
-        if is_camera_available and cap:
-            # Camera is available: overlay drawing onto the live camera frame
-            gray_canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
-            _, mask = cv2.threshold(gray_canvas, 1, 255, cv2.THRESH_BINARY)
-            
-            drawing_fg = cv2.bitwise_and(canvas, canvas, mask=mask)
-            inv_mask = cv2.bitwise_not(mask)
-            frame_bg = cv2.bitwise_and(frame, frame, mask=inv_mask)
-            
-            frame = cv2.add(frame_bg, drawing_fg)
-        else:
-            # Camera is NOT available (Server Mode): frame is the canvas
-            frame = canvas.copy()
-            # Display the helpful server message
-            cv2.putText(frame, "Run Locally for Gesture Control", (250, HEIGHT // 2 - 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, RED, 3)
-            cv2.putText(frame, "(Server mode supports drawing on background only)", (200, HEIGHT // 2 + 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, RED, 2)
+                        points.appendleft(None)  # Add None to break the line
 
-        # --- UI Overlay (Drawn on the final frame) ---
-        slider_pos = slider_x + int((thickness / 50) * slider_w)
-        
-        color_keys = list(COLORS.keys())
-        for i, key in enumerate(color_keys):
-            x1, y1 = 20 + i*100, 10
-            x2, y2 = 120 + i*100, 50
-            cv2.rectangle(frame, (x1, y1), (x2, y2), COLORS[key], -1)
-            cv2.putText(frame, key, (x1 + 10, y1 + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, WHITE if key not in ["YELLOW", "CYAN"] else BLACK, 2)
-            if draw_color == COLORS[key]:
-                cv2.rectangle(frame, (x1, y1), (x2, y2), WHITE, 3)
+            # Draw on the canvas
+            for i in range(1, len(points)):
+                if points[i - 1] is None or points[i] is None:
+                    continue
+                cv2.line(canvas, points[i - 1], points[i], draw_color, thickness)
 
-        cv2.rectangle(frame, (1060, 10), (1160, 50), WHITE, -1)
-        cv2.putText(frame, "ERASE", (1065, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
-        if draw_color == eraser_color:
-            cv2.rectangle(frame, (1060, 10), (1160, 50), BLACK, 3)
+            # Add the canvas to the frame
+            frame = cv2.add(frame, canvas)
 
-        cv2.rectangle(frame, (1170, 10), (1270, 50), WHITE, -1)
-        cv2.putText(frame, "CLEAR", (1175, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
+            # --- UI ---
+            # Draw color selection boxes
+            color_keys = list(COLORS.keys())
+            for i, key in enumerate(color_keys):
+                x1, y1 = 20 + i * 100, 10
+                x2, y2 = 120 + i * 100, 50
+                cv2.rectangle(frame, (x1, y1), (x2, y2), COLORS[key], -1)
+                cv2.putText(frame, key, (x1 + 10, y1 + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                            WHITE if key not in ["YELLOW", "CYAN"] else BLACK, 2)
+                # Highlight selected color
+                if draw_color == COLORS[key]:
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), WHITE, 3)
 
-        cv2.rectangle(frame, (slider_x, slider_y), (slider_x + slider_w, slider_y + slider_h), WHITE, -1)
-        cv2.putText(frame, f"Size: {thickness}", (slider_x + 5, slider_y + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
-        cv2.circle(frame, (slider_pos, slider_y + slider_h // 2), 15, BLACK, -1)
-        
-        if save_message_timer > 0:
-            cv2.putText(frame, "Saved!", (550, 360), cv2.FONT_HERSHEY_SIMPLEX, 2, GREEN, 3)
-            save_message_timer -= 1
-            
-        yield frame
+            # Draw eraser button
+            cv2.rectangle(frame, (1060, 10), (1160, 50), WHITE, -1)
+            cv2.putText(frame, "ERASE", (1065, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
+            if draw_color == eraser_color:
+                cv2.rectangle(frame, (1060, 10), (1160, 50), BLACK, 3)
 
-    if cap:
-        cap.release()
+            # Draw Clear button
+            cv2.rectangle(frame, (1170, 10), (1270, 50), WHITE, -1)
+            cv2.putText(frame, "CLEAR", (1175, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
 
-# --- Functions exposed to app.py (Fixes previous ImportError) ---
+            # Draw brush thickness slider
+            cv2.rectangle(frame, (slider_x, slider_y), (slider_x + slider_w, slider_y + slider_h), WHITE, -1)
+            cv2.putText(frame, f"Size: {thickness}", (slider_x + 5, slider_y + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, BLACK, 2)
+            cv2.circle(frame, (slider_pos, slider_y + slider_h // 2), 15, BLACK, -1)
+
+            # Show save message
+            if save_message_timer > 0:
+                cv2.putText(frame, "Saved!", (550, 360), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+                save_message_timer -= 1
+
+            yield frame
+    finally:
+        # Release resources
+        if cap is not None:
+            cap.release()
 
 def pause_drawing():
-    """Pauses the drawing process."""
     global is_paused
     is_paused = True
 
 def resume_drawing():
-    """Resumes the drawing process."""
     global is_paused
     is_paused = False
 
